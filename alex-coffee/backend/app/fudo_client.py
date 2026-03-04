@@ -53,9 +53,9 @@ async def get_credentials_from_db_or_env() -> tuple[str | None, str | None]:
 
 class FudoClient:
     BASE_URL = settings.fudo_api_url.rstrip("/")
+    AUTH_URL = "https://auth.fu.do/api"
 
     # Known endpoint patterns from FU.DO OpenAPI v1alpha1.
-    # Update these if the Swagger docs show different paths.
     ENDPOINTS = {
         "sales": "/v1/sales",
         "products": "/v1/products",
@@ -66,27 +66,59 @@ class FudoClient:
     def __init__(self, api_id: str | None = None, api_secret: str | None = None):
         self.api_id = api_id or settings.fudo_api_id
         self.api_secret = api_secret or settings.fudo_api_secret
+        self._token = None
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             timeout=30.0,
-            headers=self._auth_headers(),
         )
 
-    def _auth_headers(self) -> dict[str, str]:
+    async def _authenticate(self) -> str:
+        """Exchange Client ID and Secret for a Bearer token."""
+        if not self.api_id or not self.api_secret:
+            raise FudoAPIError(401, "Missing Fudo API ID or Secret. Please configure them in the Admin Panel.")
+        
+        async with httpx.AsyncClient(timeout=10.0) as auth_client:
+            payload = {
+                "apiKey": self.api_id,
+                "apiSecret": self.api_secret
+            }
+            try:
+                # Based on FU.DO docs, token exchange is at https://auth.fu.do/api
+                response = await auth_client.post(self.AUTH_URL, json=payload)
+                if response.status_code == 401:
+                    raise FudoAPIError(401, "Invalid Client Id or Secret. Check FU.DO Admin.")
+                response.raise_for_status()
+                data = response.json()
+                self._token = data.get("token")
+                if not self._token:
+                    raise FudoAPIError(500, "Auth server returned 200 but no token.")
+                return self._token
+            except httpx.HTTPError as e:
+                raise FudoAPIError(500, f"Failed to reach Fudo Auth server: {str(e)}")
+
+    def _get_headers(self) -> dict[str, str]:
         headers = {
-            "Authorization": f"Bearer {self.api_secret}",
             "Accept": "application/json",
         }
-        if self.api_id:
-            headers["X-API-ID"] = self.api_id
+        if self._token:
+            headers["Authorization"] = f"Bearer {self._token}"
         return headers
 
     async def _request(
-        self, method: str, path: str, params: dict | None = None, json: Any = None
+        self, method: str, path: str, params: dict | None = None, json: Any = None, _retry: bool = True
     ) -> Any:
-        response = await self._client.request(method, path, params=params, json=json)
-        if response.status_code == 401:
-            raise FudoAPIError(401, "Invalid or expired API token. Regenerate in FU.DO Admin > Users.")
+        if not self._token:
+            await self._authenticate()
+
+        response = await self._client.request(
+            method, path, params=params, json=json, headers=self._get_headers()
+        )
+        
+        # Handle expired token
+        if response.status_code == 401 and _retry:
+            await self._authenticate()
+            return await self._request(method, path, params=params, json=json, _retry=False)
+            
         if response.status_code >= 400:
             raise FudoAPIError(response.status_code, response.text)
         return response.json()
