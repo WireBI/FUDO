@@ -58,7 +58,7 @@ export function SalesByCategory({ data }: SalesByCategoryProps) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => `$${value.toFixed(2)}`}
+              formatter={(value: number | undefined) => value !== undefined ? `$${value.toFixed(2)}` : ''}
               contentStyle={{
                 backgroundColor: "var(--card)",
                 border: "1px solid var(--border)",

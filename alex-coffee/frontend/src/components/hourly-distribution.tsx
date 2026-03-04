@@ -37,7 +37,7 @@ export function HourlyDistribution({ data }: HourlyDistributionProps) {
                 backgroundColor: "var(--card)",
                 border: "1px solid var(--border)",
               }}
-              formatter={(value: number) => `$${value.toFixed(2)}`}
+              formatter={(value: number | undefined) => value !== undefined ? `$${value.toFixed(2)}` : ''}
             />
             <Bar dataKey="revenue" fill="hsl(var(--chart-4))" />
           </BarChart>

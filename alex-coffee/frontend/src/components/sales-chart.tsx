@@ -46,7 +46,7 @@ export function SalesChart({ data }: SalesChartProps) {
                 backgroundColor: "var(--card)",
                 border: "1px solid var(--border)",
               }}
-              formatter={(value: number) => `$${value.toFixed(2)}`}
+              formatter={(value: number | undefined) => value !== undefined ? `$${value.toFixed(2)}` : ''}
             />
             <Area
               type="monotone"
