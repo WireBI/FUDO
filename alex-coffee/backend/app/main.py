@@ -9,8 +9,9 @@ from app.routers import dashboard, sync, admin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Don't initialize DB on startup - let it happen lazily on first request
-    # This avoids SQLAlchemy trying to create a sync engine which imports psycopg2
+    # Initialize DB on startup
+    from app.database import init_db
+    await init_db()
     yield
 
 
