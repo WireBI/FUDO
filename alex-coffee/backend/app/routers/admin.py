@@ -121,3 +121,28 @@ async def credentials_status(
         "updated_by": cred.updated_by,
         "note": "Using credentials from database (encrypted)",
     }
+
+
+@router.get("/debug/db")
+async def debug_db(
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(verify_admin_key),
+):
+    """Debug endpoint to check database schema."""
+    from sqlalchemy import text
+    try:
+        # Check columns for api_credentials
+        result = await db.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name = 'api_credentials';"))
+        columns = [row[0] for row in result.fetchall()]
+        if not columns:
+            # Fallback for SQLite
+            result = await db.execute(text("PRAGMA table_info(api_credentials);"))
+            columns = [row[1] for row in result.fetchall()]
+            
+        return {
+            "table": "api_credentials",
+            "columns": columns,
+            "status": "ok"
+        }
+    except Exception as e:
+        return {"error": str(e)}

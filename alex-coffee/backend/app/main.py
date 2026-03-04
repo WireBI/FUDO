@@ -49,6 +49,7 @@ app.include_router(admin.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
+    import traceback
     from fastapi.responses import JSONResponse
     status_code = 500
     detail = str(exc)
@@ -57,10 +58,18 @@ async def global_exception_handler(request, exc):
         status_code = exc.status_code
     if hasattr(exc, "detail"):
         detail = exc.detail
+    
+    # Log full traceback to console
+    print(f"ERROR: {detail}")
+    traceback.print_exc()
         
     response = JSONResponse(
         status_code=status_code,
-        content={"detail": detail},
+        content={
+            "detail": detail,
+            "type": type(exc).__name__,
+            "path": request.url.path
+        },
     )
     # Manually add CORS headers to error responses
     origin = request.headers.get("origin")
