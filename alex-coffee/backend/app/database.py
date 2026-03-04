@@ -22,6 +22,12 @@ def _create_engine_safe():
     elif url.startswith("postgresql://") and "+asyncpg" not in url:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+    # Strip sslmode as asyncpg doesn't support it (e.g., ?sslmode=require)
+    if "sslmode=" in url:
+        import re
+        url = re.sub(r"([?&])sslmode=[^&]+(&?)", r"\1", url)
+        url = url.rstrip("?&")
+
     # Inject a fake psycopg2 module to prevent import errors
     # SQLAlchemy checks for psycopg2 even when using asyncpg
     if "psycopg2" not in sys.modules:
