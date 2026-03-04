@@ -25,6 +25,7 @@ app = FastAPI(
 # Create a list of allowed origins
 origins = [
     settings.frontend_url,
+    "https://fudo-theta.vercel.app",
     "http://localhost:3000",
     "http://localhost:3001",
 ]
