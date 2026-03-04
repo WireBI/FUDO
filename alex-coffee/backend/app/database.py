@@ -16,14 +16,31 @@ def _create_engine_safe():
     if not url:
         raise ValueError("DATABASE_URL environment variable is not set")
 
+    # Normalize DATABASE_URL for asyncpg
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
     # Inject a fake psycopg2 module to prevent import errors
     # SQLAlchemy checks for psycopg2 even when using asyncpg
     if "psycopg2" not in sys.modules:
-        class FakePsycopg2:
-            __version__ = "2.9.0"
-            paramstyle = "pyformat"
-        sys.modules["psycopg2"] = FakePsycopg2()
-        sys.modules["psycopg2.extensions"] = type(sys)("psycopg2.extensions")
+        import types
+        # Create fake psycopg2 module
+        p2 = types.ModuleType("psycopg2")
+        p2.__version__ = "2.9.0"
+        p2.paramstyle = "pyformat"
+        sys.modules["psycopg2"] = p2
+
+        # Create fake psycopg2.extensions
+        ext = types.ModuleType("psycopg2.extensions")
+        sys.modules["psycopg2.extensions"] = ext
+        p2.extensions = ext
+
+        # Create fake psycopg2.extras (fixes "cannot import name 'extras' from '<unknown module name>'")
+        ex = types.ModuleType("psycopg2.extras")
+        sys.modules["psycopg2.extras"] = ex
+        p2.extras = ex
 
     try:
         engine = create_async_engine(
@@ -33,14 +50,11 @@ def _create_engine_safe():
             connect_args={"timeout": 10}
         )
         return engine
-    except ModuleNotFoundError as e:
-        if "psycopg2" in str(e):
-            # If psycopg2 still fails, it's a deep SQLAlchemy issue
-            raise ValueError(
-                f"SQLAlchemy failed to initialize async engine: {e}. "
-                "Ensure DATABASE_URL is set correctly with postgresql+asyncpg:// protocol."
-            )
-        raise
+    except Exception as e:
+        raise ValueError(
+            f"SQLAlchemy failed to initialize async engine: {e}. "
+            "Ensure DATABASE_URL is set correctly."
+        )
 
 
 def get_engine():
