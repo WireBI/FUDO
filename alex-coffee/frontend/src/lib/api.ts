@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Ensure protocol is present to avoid relative path issues
+if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+  // If it doesn't have a protocol, assume https for production-like URLs
+  baseUrl = `https://${baseUrl}`;
+}
+
+const API_URL = baseUrl;
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -97,6 +105,7 @@ export interface SyncStatus {
 
 export interface CredentialResponse {
   id: number;
+  fudo_api_id: string | null;
   fudo_api_secret_masked: string;
   updated_at: string;
   updated_by: string | null;
@@ -134,13 +143,13 @@ export const api = {
   admin: {
     getCredentials: (adminKey: string) =>
       fetchAPIWithAuth<CredentialResponse | null>("/api/admin/credentials", adminKey),
-    updateCredentials: (adminKey: string, secret: string) =>
+    updateCredentials: (adminKey: string, secret: string, id?: string) =>
       fetchAPIWithAuth<{ status: string; message: string; updated_at: string }>(
         "/api/admin/credentials",
         adminKey,
         {
           method: "POST",
-          body: JSON.stringify({ fudo_api_secret: secret }),
+          body: JSON.stringify({ fudo_api_secret: secret, fudo_api_id: id }),
         }
       ),
     checkStatus: (adminKey: string) =>

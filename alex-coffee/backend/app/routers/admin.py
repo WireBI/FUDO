@@ -15,11 +15,13 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 class CredentialUpdate(BaseModel):
+    fudo_api_id: str | None = None
     fudo_api_secret: str
 
 
 class CredentialResponse(BaseModel):
     id: int
+    fudo_api_id: str | None
     fudo_api_secret_masked: str  # Never return the actual secret
     updated_at: datetime
     updated_by: str | None
@@ -48,6 +50,7 @@ async def get_credentials(
 
     return CredentialResponse(
         id=cred.id,
+        fudo_api_id=cred.fudo_api_id,
         fudo_api_secret_masked=f"...{cred.fudo_api_secret[-4:] if cred.fudo_api_secret else ''}",
         updated_at=cred.updated_at,
         updated_by=cred.updated_by,
@@ -73,6 +76,7 @@ async def update_credentials(
 
     # Store new credential
     cred = APICredential(
+        fudo_api_id=update.fudo_api_id.strip() if update.fudo_api_id else None,
         fudo_api_secret=encrypted_secret,
         updated_by="admin",
     )
@@ -101,11 +105,12 @@ async def credentials_status(
     if not cred:
         # Check if env var is set
         has_env_secret = bool(settings.fudo_api_secret)
+        has_env_id = bool(settings.fudo_api_id)
         return {
-            "configured": has_env_secret,
-            "source": "environment" if has_env_secret else "none",
-            "note": "Using environment variable FUDO_API_SECRET"
-            if has_env_secret
+            "configured": has_env_secret and has_env_id,
+            "source": "environment" if has_env_secret or has_env_id else "none",
+            "note": f"Using environment variables {'FUDO_API_ID ' if has_env_id else ''}{'FUDO_API_SECRET' if has_env_secret else ''}"
+            if has_env_secret or has_env_id
             else "No credentials configured",
         }
 

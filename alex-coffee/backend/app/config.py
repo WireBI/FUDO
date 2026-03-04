@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     fudo_api_url: str = "https://api.fu.do"
+    fudo_api_id: str = ""
     fudo_api_secret: str = ""
     database_url: str = ""
     frontend_url: str = "http://localhost:3000"

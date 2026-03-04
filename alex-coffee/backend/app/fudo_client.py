@@ -23,8 +23,10 @@ class FudoAPIError(Exception):
         super().__init__(f"FU.DO API error {status_code}: {detail}")
 
 
-async def get_api_secret_from_db_or_env() -> str:
-    """Get API secret from database (if available) or fallback to env var."""
+async def get_credentials_from_db_or_env() -> tuple[str | None, str | None]:
+    """Get API ID and secret from database (if available) or fallback to env var."""
+    api_id = None
+    api_secret = None
     try:
         from sqlalchemy import select
         from app.database import get_session_factory
@@ -39,12 +41,14 @@ async def get_api_secret_from_db_or_env() -> str:
             cred = result.scalars().first()
             if cred:
                 encryption_manager = get_encryption_manager()
-                return encryption_manager.decrypt(cred.fudo_api_secret)
+                api_id = cred.fudo_api_id
+                api_secret = encryption_manager.decrypt(cred.fudo_api_secret)
+                return api_id, api_secret
     except Exception:
         pass
 
     # Fallback to env var
-    return settings.fudo_api_secret
+    return settings.fudo_api_id or api_id, settings.fudo_api_secret or api_secret
 
 
 class FudoClient:
@@ -59,7 +63,8 @@ class FudoClient:
         "orders": "/v1/orders",
     }
 
-    def __init__(self, api_secret: str | None = None):
+    def __init__(self, api_id: str | None = None, api_secret: str | None = None):
+        self.api_id = api_id or settings.fudo_api_id
         self.api_secret = api_secret or settings.fudo_api_secret
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
@@ -68,10 +73,13 @@ class FudoClient:
         )
 
     def _auth_headers(self) -> dict[str, str]:
-        return {
+        headers = {
             "Authorization": f"Bearer {self.api_secret}",
             "Accept": "application/json",
         }
+        if self.api_id:
+            headers["X-API-ID"] = self.api_id
+        return headers
 
     async def _request(
         self, method: str, path: str, params: dict | None = None, json: Any = None

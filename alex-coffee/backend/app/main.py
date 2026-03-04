@@ -22,9 +22,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Create a list of allowed origins
+origins = [
+    settings.frontend_url,
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+
+# Ensure the frontend_url doesn't have a trailing slash which can sometimes cause issues in origin matching
+if settings.frontend_url and settings.frontend_url.endswith("/"):
+    origins.append(settings.frontend_url[:-1])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [credentialStatus, setCredentialStatus] = useState<any>(null);
   const [currentCredential, setCurrentCredential] = useState<any>(null);
 
+  const [newId, setNewId] = useState("");
   const [newSecret, setNewSecret] = useState("");
   const [updateLoading, setUpdateLoading] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
@@ -47,9 +48,10 @@ export default function AdminPage() {
     try {
       setUpdateLoading(true);
       setError(null);
-      await api.admin.updateCredentials(adminKey, newSecret);
+      await api.admin.updateCredentials(adminKey, newSecret, newId);
       setUpdateSuccess(true);
       setNewSecret("");
+      setNewId("");
       setTimeout(() => setUpdateSuccess(false), 3000);
       // Refresh credential display
       const [cred, status] = await Promise.all([
@@ -212,18 +214,36 @@ export default function AdminPage() {
               )}
 
               {currentCredential && (
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium mb-2">Current Secret (masked)</p>
-                  <div className="flex items-center gap-2 font-mono text-sm bg-muted p-2 rounded">
-                    {currentCredential.fudo_api_secret_masked}
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(currentCredential.fudo_api_secret_masked);
-                      }}
-                      className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
+                <div className="border-t pt-4 space-y-4">
+                  {currentCredential.fudo_api_id && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Current API ID</p>
+                      <div className="flex items-center gap-2 font-mono text-sm bg-muted p-2 rounded">
+                        {currentCredential.fudo_api_id}
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentCredential.fudo_api_id);
+                          }}
+                          className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium mb-2">Current Secret (masked)</p>
+                    <div className="flex items-center gap-2 font-mono text-sm bg-muted p-2 rounded">
+                      {currentCredential.fudo_api_secret_masked}
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentCredential.fudo_api_secret_masked);
+                        }}
+                        className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -240,20 +260,32 @@ export default function AdminPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">New API Secret</label>
-            <input
-              type="password"
-              value={newSecret}
-              onChange={(e) => setNewSecret(e.target.value)}
-              placeholder="Paste your FU.DO API secret"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <p className="text-xs text-muted-foreground">
-              Generate a new secret in FU.DO Admin &gt; Users &gt; Establecer API Secret
-            </p>
-          </div>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">API ID</label>
+              <input
+                type="text"
+                value={newId}
+                onChange={(e) => setNewId(e.target.value)}
+                placeholder="Enter your FU.DO API ID"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">API Secret</label>
+              <input
+                type="password"
+                value={newSecret}
+                onChange={(e) => setNewSecret(e.target.value)}
+                placeholder="Paste your FU.DO API secret"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                Generate these in FU.DO Admin &gt; Users &gt; Establecer API Secret
+              </p>
+            </div>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handleUpdateSecret}
@@ -269,9 +301,12 @@ export default function AdminPage() {
                 "Update Secret"
               )}
             </button>
-            {newSecret && (
+            {(newSecret || newId) && (
               <button
-                onClick={() => setNewSecret("")}
+                onClick={() => {
+                  setNewSecret("");
+                  setNewId("");
+                }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Clear

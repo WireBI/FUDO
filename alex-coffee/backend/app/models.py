@@ -11,6 +11,7 @@ class APICredential(Base):
     __tablename__ = "api_credentials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    fudo_api_id: Mapped[str | None] = mapped_column(String, nullable=True)
     fudo_api_secret: Mapped[str] = mapped_column(String, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
