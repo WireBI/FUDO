@@ -1,4 +1,7 @@
 {
-  "root": "alex-coffee/frontend"
+  "buildCommand": "cd alex-coffee/frontend && npm run build",
+  "outputDirectory": "alex-coffee/frontend/.next",
+  "installCommand": "cd alex-coffee/frontend && npm install"
 }
+
 
