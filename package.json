@@ -1,0 +1,12 @@
+{
+    "name": "alex-coffee-root",
+    "private": true,
+    "scripts": {
+        "dev": "npm run dev --prefix alex-coffee/frontend",
+        "build": "npm run build --prefix alex-coffee/frontend",
+        "start": "npm run start --prefix alex-coffee/frontend"
+    },
+    "dependencies": {
+        "next": "16.1.6"
+    }
+}

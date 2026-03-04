@@ -1,6 +1,5 @@
 {
-  "buildCommand": "cd alex-coffee/frontend && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "alex-coffee/frontend/.next",
-  "installCommand": "cd alex-coffee/frontend && npm install",
   "framework": "nextjs"
 }
