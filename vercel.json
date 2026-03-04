@@ -1,5 +1,0 @@
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "alex-coffee/frontend/.next",
-  "framework": "nextjs"
-}
