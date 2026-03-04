@@ -96,7 +96,20 @@ async def init_db():
     try:
         engine = get_engine()
         async with engine.begin() as conn:
+            from sqlalchemy import text
             await conn.run_sync(Base.metadata.create_all)
+            
+            # Patch: Ensure fudo_api_id column exists
+            try:
+                # PostgreSQL style
+                await conn.execute(text("ALTER TABLE api_credentials ADD COLUMN IF NOT EXISTS fudo_api_id VARCHAR;"))
+            except Exception:
+                try:
+                    # SQLite style (doesn't support IF NOT EXISTS, so try adding directly)
+                    await conn.execute(text("ALTER TABLE api_credentials ADD COLUMN fudo_api_id VARCHAR;"))
+                except Exception:
+                    # Column likely already exists
+                    pass
         _db_initialized = True
     except Exception as e:
         # Log but don't fail - tables might already exist

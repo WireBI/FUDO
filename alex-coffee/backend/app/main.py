@@ -47,6 +47,21 @@ app.include_router(sync.router)
 app.include_router(admin.router)
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    from fastapi.responses import JSONResponse
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
+    # Manually add CORS headers to error responses
+    origin = request.headers.get("origin")
+    if origin in origins or "*" in origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "alex-coffee-analytics"}
