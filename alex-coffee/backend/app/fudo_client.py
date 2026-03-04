@@ -64,13 +64,25 @@ class FudoClient:
     }
 
     def __init__(self, api_id: str | None = None, api_secret: str | None = None):
+        # Use provided or fallback to env
         self.api_id = api_id or settings.fudo_api_id
         self.api_secret = api_secret or settings.fudo_api_secret
+        
         self._token = None
         self._client = httpx.AsyncClient(
             base_url=self.BASE_URL,
             timeout=30.0,
         )
+
+    @classmethod
+    async def create(cls, api_id: str | None = None, api_secret: str | None = None) -> FudoClient:
+        """Factory method to create a FudoClient with DB credentials if none provided."""
+        if not api_id or not api_secret:
+            db_id, db_secret = await get_credentials_from_db_or_env()
+            api_id = api_id or db_id
+            api_secret = api_secret or db_secret
+            
+        return cls(api_id=api_id, api_secret=api_secret)
 
     async def _authenticate(self) -> str:
         """Exchange Client ID and Secret for a Bearer token."""

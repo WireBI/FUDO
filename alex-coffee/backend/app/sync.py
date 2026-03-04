@@ -226,7 +226,7 @@ async def run_full_sync(
     days_back: int = 30,
 ) -> dict:
     """Run a complete sync of categories, products, and sales."""
-    client = FudoClient()
+    client = await FudoClient.create()
     try:
         cat_count = await sync_categories(db, client)
         prod_count = await sync_products(db, client)

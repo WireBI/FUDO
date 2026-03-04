@@ -49,7 +49,7 @@ async def sync_status(db: AsyncSession = Depends(get_db)):
 @router.get("/health")
 async def fudo_health():
     """Check if the FU.DO API is reachable."""
-    client = FudoClient()
+    client = await FudoClient.create()
     try:
         healthy = await client.health_check()
         return {"fudo_api": "connected" if healthy else "unreachable"}
