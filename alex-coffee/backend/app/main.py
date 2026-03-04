@@ -50,16 +50,31 @@ app.include_router(admin.router)
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     from fastapi.responses import JSONResponse
+    status_code = 500
+    detail = str(exc)
+    
+    if hasattr(exc, "status_code"):
+        status_code = exc.status_code
+    if hasattr(exc, "detail"):
+        detail = exc.detail
+        
     response = JSONResponse(
-        status_code=500,
-        content={"detail": str(exc)},
+        status_code=status_code,
+        content={"detail": detail},
     )
     # Manually add CORS headers to error responses
     origin = request.headers.get("origin")
     if origin in origins or "*" in origins:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
     return response
+
+# Also handle FastAPI's built-in RequestValidationError to avoid CORS issues on bad requests
+@app.exception_handler(422)
+async def validation_exception_handler(request, exc):
+    return await global_exception_handler(request, exc)
 
 
 @app.get("/api/health")

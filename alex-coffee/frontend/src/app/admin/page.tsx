@@ -254,9 +254,9 @@ export default function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Update FU.DO API Secret</CardTitle>
+          <CardTitle>Update Credentials</CardTitle>
           <CardDescription>
-            Replace your FU.DO API secret (safely encrypted and stored in database)
+            Replace your FU.DO API credentials (safely encrypted and stored in database)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
