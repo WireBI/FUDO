@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.database import get_db
-from app.encryption import encryption_manager
 from app.models import APICredential
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -62,11 +61,14 @@ async def update_credentials(
     admin_key: str = Depends(verify_admin_key),
 ):
     """Update FU.DO API credentials."""
+    from app.encryption import get_encryption_manager
+
     secret = update.fudo_api_secret.strip()
     if not secret:
         raise HTTPException(status_code=400, detail="API secret cannot be empty")
 
     # Encrypt before storing
+    encryption_manager = get_encryption_manager()
     encrypted_secret = encryption_manager.encrypt(secret)
 
     # Store new credential

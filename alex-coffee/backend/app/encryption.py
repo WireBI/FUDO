@@ -15,7 +15,19 @@ class EncryptionManager:
         if not key:
             # For development, generate a key (not recommended for production)
             key = Fernet.generate_key().decode()
-        self.cipher = Fernet(key.encode() if isinstance(key, str) else key)
+
+        # Fernet expects bytes. If key is a string, it should already be base64-encoded.
+        # Pass directly - Fernet constructor handles both str and bytes.
+        try:
+            if isinstance(key, str):
+                self.cipher = Fernet(key)
+            else:
+                self.cipher = Fernet(key)
+        except ValueError as e:
+            raise ValueError(
+                f"Invalid ENCRYPTION_KEY: {e}. "
+                "Generate a valid key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            )
 
     def encrypt(self, plaintext: str) -> str:
         """Encrypt a string and return base64-encoded ciphertext."""
@@ -29,4 +41,12 @@ class EncryptionManager:
         return plaintext.decode()
 
 
-encryption_manager = EncryptionManager()
+# Lazy initialization - prevent import errors if encryption key is invalid
+_encryption_manager = None
+
+
+def get_encryption_manager():
+    global _encryption_manager
+    if _encryption_manager is None:
+        _encryption_manager = EncryptionManager()
+    return _encryption_manager

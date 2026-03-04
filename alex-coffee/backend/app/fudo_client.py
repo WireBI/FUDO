@@ -29,7 +29,7 @@ async def get_api_secret_from_db_or_env() -> str:
         from sqlalchemy import select
         from app.database import get_session_factory
         from app.models import APICredential
-        from app.encryption import encryption_manager
+        from app.encryption import get_encryption_manager
 
         session_factory = get_session_factory()
         async with session_factory() as db:
@@ -38,6 +38,7 @@ async def get_api_secret_from_db_or_env() -> str:
             )
             cred = result.scalars().first()
             if cred:
+                encryption_manager = get_encryption_manager()
                 return encryption_manager.decrypt(cred.fudo_api_secret)
     except Exception:
         pass
