@@ -7,6 +7,6 @@
         "start": "npm run start --prefix alex-coffee/frontend"
     },
     "dependencies": {
-        "next": "15.1.7"
+        "next": "15.1.11"
     }
 }
