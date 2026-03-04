@@ -13,3 +13,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Helper for users to generate a valid encryption key
+def generate_encryption_key() -> str:
+    """Generate a valid Fernet encryption key for use in ENCRYPTION_KEY environment variable."""
+    from cryptography.fernet import Fernet
+    return Fernet.generate_key().decode()

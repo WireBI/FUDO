@@ -25,8 +25,10 @@ class EncryptionManager:
                 self.cipher = Fernet(key)
         except ValueError as e:
             raise ValueError(
-                f"Invalid ENCRYPTION_KEY: {e}. "
-                "Generate a valid key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                f"Invalid ENCRYPTION_KEY environment variable: {e}. "
+                "To generate a valid key, run:\n"
+                "  python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\"\n"
+                "Then set ENCRYPTION_KEY to the generated value in your Railway environment variables."
             )
 
     def encrypt(self, plaintext: str) -> str:
