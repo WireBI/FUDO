@@ -27,11 +27,12 @@ async def get_api_secret_from_db_or_env() -> str:
     """Get API secret from database (if available) or fallback to env var."""
     try:
         from sqlalchemy import select
-        from app.database import async_session
+        from app.database import get_session_factory
         from app.models import APICredential
         from app.encryption import encryption_manager
 
-        async with async_session() as db:
+        session_factory = get_session_factory()
+        async with session_factory() as db:
             result = await db.execute(
                 select(APICredential).order_by(APICredential.updated_at.desc()).limit(1)
             )
