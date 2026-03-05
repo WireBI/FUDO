@@ -57,10 +57,10 @@ class FudoClient:
 
     # Known endpoint patterns from FU.DO OpenAPI v1alpha1.
     ENDPOINTS = {
-        "sales": "/v1/sales",
-        "products": "/v1/products",
-        "categories": "/v1/categories",
-        "orders": "/v1/orders",
+        "sales": "/v1alpha1/sales",
+        "products": "/v1alpha1/products",
+        "categories": "/v1alpha1/categories",
+        "orders": "/v1alpha1/orders",
     }
 
     def __init__(self, api_id: str | None = None, api_secret: str | None = None):
@@ -89,7 +89,7 @@ class FudoClient:
         if not self.api_id or not self.api_secret:
             raise FudoAPIError(401, "Missing Fudo API ID or Secret. Please configure them in the Admin Panel.")
         
-        async with httpx.AsyncClient(timeout=10.0) as auth_client:
+        async with httpx.AsyncClient(timeout=15.0) as auth_client:
             payload = {
                 "apiKey": self.api_id,
                 "apiSecret": self.api_secret
@@ -97,16 +97,24 @@ class FudoClient:
             try:
                 # Based on FU.DO docs, token exchange is at https://auth.fu.do/api
                 response = await auth_client.post(self.AUTH_URL, json=payload)
+                
                 if response.status_code == 401:
                     raise FudoAPIError(401, "Invalid Client Id or Secret. Check FU.DO Admin.")
-                response.raise_for_status()
+                    
+                if response.status_code >= 400:
+                    raise FudoAPIError(response.status_code, f"Auth server error: {response.text}")
+                    
                 data = response.json()
                 self._token = data.get("token")
                 if not self._token:
-                    raise FudoAPIError(500, "Auth server returned 200 but no token.")
+                    raise FudoAPIError(500, f"Auth server returned success but missing 'token' field: {data}")
                 return self._token
-            except httpx.HTTPError as e:
-                raise FudoAPIError(500, f"Failed to reach Fudo Auth server: {str(e)}")
+            except httpx.ConnectError as e:
+                raise FudoAPIError(500, f"Connection failed to Fudo Auth server ({self.AUTH_URL}). Check backend connectivity: {str(e)}")
+            except httpx.TimeoutException:
+                raise FudoAPIError(500, f"Timeout reaching Fudo Auth server after 15s ({self.AUTH_URL})")
+            except Exception as e:
+                raise FudoAPIError(500, f"Unexpected error during Fudo authentication: {str(e)}")
 
     def _get_headers(self) -> dict[str, str]:
         headers = {
@@ -142,7 +150,11 @@ class FudoClient:
         limit: int = 1000,
         offset: int = 0,
     ) -> list[dict]:
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        # page[number] is 1-indexed in many JSON:API implementations, 
+        # but let's calculate based on limit/offset if possible or just use them directly.
+        # Fudo docs show page[size] and page[number].
+        page_number = (offset // limit) + 1
+        params: dict[str, Any] = {"page[size]": limit, "page[number]": page_number}
         if date_from:
             params["from"] = date_from.isoformat()
         if date_to:
@@ -173,7 +185,8 @@ class FudoClient:
         return all_sales
 
     async def get_products(self, limit: int = 1000, offset: int = 0) -> list[dict]:
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        page_number = (offset // limit) + 1
+        params: dict[str, Any] = {"page[size]": limit, "page[number]": page_number}
         data = await self._request("GET", self.ENDPOINTS["products"], params=params)
         if isinstance(data, dict) and "data" in data:
             return data["data"]
