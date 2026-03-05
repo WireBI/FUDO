@@ -59,7 +59,7 @@ class FudoClient:
     ENDPOINTS = {
         "sales": "/v1alpha1/sales",
         "products": "/v1alpha1/products",
-        "categories": "/v1alpha1/categories",
+        "categories": "/v1alpha1/product-categories",
         "orders": "/v1alpha1/orders",
     }
 
@@ -83,6 +83,51 @@ class FudoClient:
             api_secret = api_secret or db_secret
             
         return cls(api_id=api_id, api_secret=api_secret)
+
+    def _normalize_json_api(self, data: dict, included: list[dict] | None = None) -> list[dict]:
+        """Normalize JSON:API response by flattening attributes and resolving relationships."""
+        if not isinstance(data, dict) or "data" not in data:
+            return data if isinstance(data, list) else []
+
+        items = data["data"]
+        if not isinstance(items, list):
+            items = [items]
+
+        # Build map for included resources
+        inc_map = {}
+        if included:
+            for inc in included:
+                type_id = f"{inc['type']}_{inc['id']}"
+                inc_map[type_id] = {**inc.get("attributes", {}), "id": inc["id"]}
+
+        normalized = []
+        for item in items:
+            flat = {**item.get("attributes", {}), "id": item["id"]}
+            
+            # Simple relationship resolution for items
+            relationships = item.get("relationships", {})
+            if relationships:
+                # Add included items to Sales
+                if item["type"] == "Sale" and "items" in relationships:
+                    rel_items = relationships["items"].get("data", [])
+                    sale_items = []
+                    for rel_item in rel_items:
+                        key = f"{rel_item['type']}_{rel_item['id']}"
+                        if key in inc_map:
+                            item_data = inc_map[key]
+                            # Try to resolve product for the item
+                            # (Items in FU.DO docs have product relationship)
+                            sale_items.append(item_data)
+                    flat["items"] = sale_items
+                
+                # Add category ID back to products for sync.py
+                if item["type"] == "Product" and "productCategory" in relationships:
+                    cat_data = relationships["productCategory"].get("data")
+                    if cat_data:
+                        flat["categoryId"] = cat_data["id"]
+
+            normalized.append(flat)
+        return normalized
 
     async def _authenticate(self) -> str:
         """Exchange Client ID and Secret for a Bearer token."""
@@ -154,18 +199,18 @@ class FudoClient:
         # but let's calculate based on limit/offset if possible or just use them directly.
         # Fudo docs show page[size] and page[number].
         page_number = (offset // limit) + 1
-        params: dict[str, Any] = {"page[size]": limit, "page[number]": page_number}
+        params: dict[str, Any] = {
+            "page[size]": limit, 
+            "page[number]": page_number,
+            "include": "items,items.product"
+        }
         if date_from:
             params["from"] = date_from.isoformat()
         if date_to:
             params["to"] = date_to.isoformat()
+        
         data = await self._request("GET", self.ENDPOINTS["sales"], params=params)
-        # The API may return {"data": [...]} or a bare list
-        if isinstance(data, dict) and "data" in data:
-            return data["data"]
-        if isinstance(data, list):
-            return data
-        return []
+        return self._normalize_json_api(data, data.get("included"))
 
     async def get_all_sales(
         self, date_from: datetime | None = None, date_to: datetime | None = None
@@ -188,24 +233,16 @@ class FudoClient:
         page_number = (offset // limit) + 1
         params: dict[str, Any] = {"page[size]": limit, "page[number]": page_number}
         data = await self._request("GET", self.ENDPOINTS["products"], params=params)
-        if isinstance(data, dict) and "data" in data:
-            return data["data"]
-        if isinstance(data, list):
-            return data
-        return []
+        return self._normalize_json_api(data)
 
     async def get_categories(self) -> list[dict]:
         data = await self._request("GET", self.ENDPOINTS["categories"])
-        if isinstance(data, dict) and "data" in data:
-            return data["data"]
-        if isinstance(data, list):
-            return data
-        return []
+        return self._normalize_json_api(data)
 
     async def health_check(self) -> bool:
         """Return True if the API responds successfully."""
         try:
-            await self._request("GET", self.ENDPOINTS["products"], params={"limit": 1})
+            await self._request("GET", self.ENDPOINTS["products"], params={"page[size]": 1})
             return True
         except Exception:
             return False
