@@ -93,30 +93,40 @@ class FudoClient:
         if not isinstance(items, list):
             items = [items]
 
-        # Build map for included resources
+        # Build map for included resources { 'type_id': {attributes...} }
         inc_map = {}
         if included:
             for inc in included:
                 type_id = f"{inc['type']}_{inc['id']}"
-                inc_map[type_id] = {**inc.get("attributes", {}), "id": inc["id"]}
+                inc_map[type_id] = {**inc.get("attributes", {}), "id": inc["id"], "relationships": inc.get("relationships", {})}
 
         normalized = []
         for item in items:
             flat = {**item.get("attributes", {}), "id": item["id"]}
             
-            # Simple relationship resolution for items
+            # Simple relationship resolution
             relationships = item.get("relationships", {})
             if relationships:
                 # Add included items to Sales
                 if item["type"] == "Sale" and "items" in relationships:
-                    rel_items = relationships["items"].get("data", [])
+                    rel_items_refs = relationships["items"].get("data", [])
                     sale_items = []
-                    for rel_item in rel_items:
-                        key = f"{rel_item['type']}_{rel_item['id']}"
+                    for ref in rel_items_refs:
+                        key = f"{ref['type']}_{ref['id']}"
                         if key in inc_map:
                             item_data = inc_map[key]
-                            # Try to resolve product for the item
-                            # (Items in FU.DO docs have product relationship)
+                            
+                            # Resolve product for this item if possible
+                            item_rels = item_data.get("relationships", {})
+                            if "product" in item_rels:
+                                prod_ref = item_rels["product"].get("data")
+                                if prod_ref:
+                                    prod_key = f"{prod_ref['type']}_{prod_ref['id']}"
+                                    if prod_key in inc_map:
+                                        prod_data = inc_map[prod_key]
+                                        item_data["productId"] = prod_data["id"]
+                                        item_data["productName"] = prod_data.get("name")
+                            
                             sale_items.append(item_data)
                     flat["items"] = sale_items
                 

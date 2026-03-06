@@ -40,25 +40,30 @@ async def sync_categories(db: AsyncSession, client: FudoClient) -> int:
         await _log_sync(db, "categories", "error", error=str(e))
         raise
 
-    count = 0
-    for cat in categories:
-        fudo_id = str(cat.get("id", cat.get("_id", "")))
-        name = cat.get("name", cat.get("nombre", "Unknown"))
-        if not fudo_id:
-            continue
+    if not categories:
+        await _log_sync(db, "categories", "success", records=0)
+        return 0
 
+    values = []
+    for cat in categories:
+        fudo_id = str(cat.get("id", ""))
+        name = cat.get("name", "Unknown")
+        if fudo_id:
+            values.append({"fudo_id": fudo_id, "name": name, "updated_at": datetime.utcnow()})
+
+    if values:
         stmt = (
             pg_insert(Category)
-            .values(fudo_id=fudo_id, name=name, updated_at=datetime.utcnow())
+            .values(values)
             .on_conflict_do_update(
                 index_elements=["fudo_id"],
-                set_={"name": name, "updated_at": datetime.utcnow()},
+                set_={"name": Category.name, "updated_at": datetime.utcnow()},
             )
         )
         await db.execute(stmt)
-        count += 1
+        await db.commit()
 
-    await db.commit()
+    count = len(values)
     await _log_sync(db, "categories", "success", records=count)
     return count
 
@@ -71,47 +76,52 @@ async def sync_products(db: AsyncSession, client: FudoClient) -> int:
         await _log_sync(db, "products", "error", error=str(e))
         raise
 
+    if not products:
+        await _log_sync(db, "products", "success", records=0)
+        return 0
+
     # Build category fudo_id → db id map
     result = await db.execute(select(Category.fudo_id, Category.id))
     cat_map = {row[0]: row[1] for row in result.all()}
 
-    count = 0
+    values = []
     for prod in products:
-        fudo_id = str(prod.get("id", prod.get("_id", "")))
-        name = prod.get("name", prod.get("nombre", "Unknown"))
-        price = prod.get("price", prod.get("precio", 0)) or 0
-        active = prod.get("active", prod.get("activo", True))
-        cat_fudo_id = str(prod.get("categoryId", prod.get("categoriaId", "")))
+        fudo_id = str(prod.get("id", ""))
+        name = prod.get("name", "Unknown")
+        price = prod.get("price", 0) or 0
+        active = prod.get("active", True)
+        cat_fudo_id = str(prod.get("categoryId", ""))
         category_id = cat_map.get(cat_fudo_id)
 
-        if not fudo_id:
-            continue
+        if fudo_id:
+            values.append({
+                "fudo_id": fudo_id,
+                "name": name,
+                "category_id": category_id,
+                "price": price,
+                "active": active,
+                "updated_at": datetime.utcnow(),
+            })
 
+    if values:
         stmt = (
             pg_insert(Product)
-            .values(
-                fudo_id=fudo_id,
-                name=name,
-                category_id=category_id,
-                price=price,
-                active=active,
-                updated_at=datetime.utcnow(),
-            )
+            .values(values)
             .on_conflict_do_update(
                 index_elements=["fudo_id"],
                 set_={
-                    "name": name,
-                    "category_id": category_id,
-                    "price": price,
-                    "active": active,
+                    "name": Product.name,
+                    "category_id": Product.category_id,
+                    "price": Product.price,
+                    "active": Product.active,
                     "updated_at": datetime.utcnow(),
                 },
             )
         )
         await db.execute(stmt)
-        count += 1
+        await db.commit()
 
-    await db.commit()
+    count = len(values)
     await _log_sync(db, "products", "success", records=count)
     return count
 
@@ -134,22 +144,24 @@ async def sync_sales(
         await _log_sync(db, "sales", "error", error=str(e))
         raise
 
+    if not sales:
+        await _log_sync(db, "sales", "success", records=0)
+        return 0
+
     # Build product fudo_id → db id map
     result = await db.execute(select(Product.fudo_id, Product.id))
     prod_map = {row[0]: row[1] for row in result.all()}
 
-    count = 0
+    values = []
     for sale in sales:
-        fudo_id = str(sale.get("id", sale.get("_id", "")))
+        fudo_id = str(sale.get("id", ""))
         if not fudo_id:
             continue
 
-        # Parse sale date — try multiple field names
-        sale_date_raw = sale.get("date", sale.get("fecha", sale.get("createdAt", "")))
+        # Parse sale date
+        sale_date_raw = sale.get("createdAt", "")
         if isinstance(sale_date_raw, str):
             try:
-                # Based on user error, this can produce offset-aware datetime
-                # We normalize to naive UTC (Postgres requirement for TIMESTAMP WITHOUT TIME ZONE)
                 sale_date = datetime.fromisoformat(sale_date_raw.replace("Z", "+00:00")).replace(tzinfo=None)
             except ValueError:
                 sale_date = datetime.utcnow()
@@ -158,67 +170,64 @@ async def sync_sales(
         else:
             sale_date = datetime.utcnow()
 
-        # Handle items within a sale (FU.DO may return sales with nested items)
-        items = sale.get("items", sale.get("productos", []))
+        # Handle items within a sale
+        items = sale.get("items", [])
         if items:
             for item in items:
-                item_fudo_id = f"{fudo_id}_{item.get('id', item.get('_id', count))}"
-                prod_fudo_id = str(item.get("productId", item.get("productoId", "")))
-                product_name = item.get("name", item.get("nombre", ""))
-                quantity = item.get("quantity", item.get("cantidad", 1)) or 1
-                unit_price = item.get("unitPrice", item.get("precioUnitario", item.get("price", 0))) or 0
-                total = item.get("total", item.get("subtotal", float(unit_price) * quantity))
+                item_fudo_id = f"{fudo_id}_{item.get('id', '0')}"
+                prod_fudo_id = str(item.get("productId", ""))
+                product_name = item.get("productName", "")
+                quantity = item.get("quantity", 1) or 1
+                unit_price = item.get("price", 0) or 0
+                total = item.get("total", float(unit_price) * quantity)
 
-                stmt = (
-                    pg_insert(Sale)
-                    .values(
-                        fudo_id=item_fudo_id,
-                        product_id=prod_map.get(prod_fudo_id),
-                        product_name=product_name,
-                        quantity=quantity,
-                        unit_price=unit_price,
-                        total=total,
-                        sale_date=sale_date,
-                        payment_method=sale.get("paymentMethod", sale.get("metodoPago")),
-                        order_number=sale.get("orderNumber", sale.get("numero")),
-                    )
-                    .on_conflict_do_update(
-                        index_elements=["fudo_id"],
-                        set_={"total": total, "quantity": quantity},
-                    )
-                )
-                await db.execute(stmt)
-                count += 1
+                values.append({
+                    "fudo_id": item_fudo_id,
+                    "product_id": prod_map.get(prod_fudo_id),
+                    "product_name": product_name,
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "total": total,
+                    "sale_date": sale_date,
+                    "payment_method": sale.get("saleType"),
+                    "order_number": None, # Fudo v1alpha1 sales don't seem to have simple orderNumber
+                })
         else:
-            # Flat sale record (no nested items)
-            product_name = sale.get("productName", sale.get("producto", ""))
-            prod_fudo_id = str(sale.get("productId", sale.get("productoId", "")))
-            quantity = sale.get("quantity", sale.get("cantidad", 1)) or 1
-            unit_price = sale.get("unitPrice", sale.get("precioUnitario", sale.get("price", 0))) or 0
-            total = sale.get("total", float(unit_price) * quantity)
+            # Fallback for flat sale record if items missing
+            total = sale.get("total", 0)
+            values.append({
+                "fudo_id": fudo_id,
+                "product_id": None,
+                "product_name": "Sale Total",
+                "quantity": 1,
+                "unit_price": total,
+                "total": total,
+                "sale_date": sale_date,
+                "payment_method": sale.get("saleType"),
+                "order_number": None,
+            })
 
-            stmt = (
-                pg_insert(Sale)
-                .values(
-                    fudo_id=fudo_id,
-                    product_id=prod_map.get(prod_fudo_id),
-                    product_name=product_name,
-                    quantity=quantity,
-                    unit_price=unit_price,
-                    total=total,
-                    sale_date=sale_date,
-                    payment_method=sale.get("paymentMethod", sale.get("metodoPago")),
-                    order_number=sale.get("orderNumber", sale.get("numero")),
-                )
-                .on_conflict_do_update(
-                    index_elements=["fudo_id"],
-                    set_={"total": total, "quantity": quantity},
-                )
+    # Batch insert in chunks to avoid large parameter limits
+    chunk_size = 500
+    for i in range(0, len(values), chunk_size):
+        chunk = values[i : i + chunk_size]
+        stmt = (
+            pg_insert(Sale)
+            .values(chunk)
+            .on_conflict_do_update(
+                index_elements=["fudo_id"],
+                set_={
+                    "total": Sale.total,
+                    "quantity": Sale.quantity,
+                    "product_id": Sale.product_id,
+                    "product_name": Sale.product_name,
+                },
             )
-            await db.execute(stmt)
-            count += 1
-
+        )
+        await db.execute(stmt)
+    
     await db.commit()
+    count = len(values)
     await _log_sync(db, "sales", "success", records=count)
     return count
 
