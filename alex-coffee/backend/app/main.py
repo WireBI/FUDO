@@ -67,6 +67,7 @@ async def global_exception_handler(request, exc):
         status_code=status_code,
         content={
             "detail": detail,
+            "traceback": traceback.format_exc(),
             "type": type(exc).__name__,
             "path": request.url.path
         },
