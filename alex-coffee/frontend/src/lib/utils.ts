@@ -1,3 +1,14 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+/**
+ * Merges class names with tailwind-merge and clsx.
+ * Standard shadcn/ui utility.
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 /**
  * Formats a number with thousands separators and no decimal places.
  * Example: 1234.56 -> 1,235
