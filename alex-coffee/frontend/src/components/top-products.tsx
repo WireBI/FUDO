@@ -18,11 +18,14 @@ interface TopProductsProps {
 }
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "oklch(0.6 0.2 240)",
+  "oklch(0.7 0.2 120)",
+  "oklch(0.8 0.2 60)",
 ];
 
 export function TopProducts({ data }: TopProductsProps) {
@@ -47,13 +50,13 @@ export function TopProducts({ data }: TopProductsProps) {
       <CardContent>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--muted))" />
-            <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-            <YAxis dataKey="name" type="category" width={100} stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--muted)" />
+            <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+            <YAxis dataKey="name" type="category" width={100} stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "var(--radius)",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}

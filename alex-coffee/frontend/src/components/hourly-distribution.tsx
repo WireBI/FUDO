@@ -18,11 +18,14 @@ interface HourlyDistributionProps {
 }
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "oklch(0.6 0.2 240)",
+  "oklch(0.7 0.2 120)",
+  "oklch(0.8 0.2 60)",
 ];
 
 export function HourlyDistribution({ data }: HourlyDistributionProps) {
@@ -39,16 +42,16 @@ export function HourlyDistribution({ data }: HourlyDistributionProps) {
       <CardContent>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={formattedData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--muted)" />
             <XAxis
               dataKey="hour"
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
@@ -56,8 +59,8 @@ export function HourlyDistribution({ data }: HourlyDistributionProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "var(--radius)",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}

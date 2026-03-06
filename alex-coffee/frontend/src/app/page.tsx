@@ -99,39 +99,45 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {period === "custom" && (
-            <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-300">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <span className="text-muted-foreground font-medium">to</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          )}
-
-          <div className="w-[160px]">
+        <div className="flex flex-wrap items-center gap-4 p-2 bg-muted/30 rounded-xl border border-border/40">
+          <div className="w-[180px]">
             <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
-              <SelectTrigger className="h-9 font-medium">
+              <SelectTrigger className="h-10 font-bold bg-background shadow-sm">
                 <SelectValue placeholder="Period" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-                <SelectItem value="custom">Custom Range</SelectItem>
+                <SelectItem value="today" className="font-medium">Today</SelectItem>
+                <SelectItem value="week" className="font-medium">This Week</SelectItem>
+                <SelectItem value="month" className="font-medium">This Month</SelectItem>
+                <SelectItem value="year" className="font-medium">This Year</SelectItem>
+                <SelectItem value="custom" className="font-bold text-primary">Custom Range</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {period === "custom" && (
+            <div className="flex items-center gap-3 animate-in slide-in-from-right-4 duration-500 p-2 bg-background rounded-lg shadow-inner border border-border/60">
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-8 px-2 rounded-md border-none bg-transparent text-sm font-semibold focus:outline-none focus:ring-0"
+                />
+              </div>
+              <div className="h-8 w-[1px] bg-border/60 self-end mb-1" />
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-8 px-2 rounded-md border-none bg-transparent text-sm font-semibold focus:outline-none focus:ring-0"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

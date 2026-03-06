@@ -16,11 +16,14 @@ interface SalesByCategoryProps {
 }
 
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "oklch(0.6 0.2 240)",
+  "oklch(0.7 0.2 120)",
+  "oklch(0.8 0.2 60)",
 ];
 
 export function SalesByCategory({ data }: SalesByCategoryProps) {
@@ -60,7 +63,7 @@ export function SalesByCategory({ data }: SalesByCategoryProps) {
                 <Cell
                   key={`cell-${index}`}
                   fill={COLORS[index % COLORS.length]}
-                  stroke="hsl(var(--background))"
+                  stroke="var(--background)"
                   strokeWidth={2}
                 />
               ))}
@@ -68,8 +71,8 @@ export function SalesByCategory({ data }: SalesByCategoryProps) {
             <Tooltip
               formatter={(value: number | undefined) => [formatCurrency(value || 0), "Revenue"]}
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "var(--radius)",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}

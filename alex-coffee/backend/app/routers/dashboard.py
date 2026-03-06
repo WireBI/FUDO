@@ -12,16 +12,22 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 PeriodType = str  # "today" | "week" | "month" | "year"
 
 
+# Argentina timezone offset (UTC-3)
+ARG_OFFSET = -3
+
 def _period_range(
     period: str, 
     start_date: datetime | None = None, 
     end_date: datetime | None = None
 ) -> tuple[datetime, datetime]:
     """Return (start, end) datetimes for the given period or custom range."""
+    # Work in UTC for all logic
     now = datetime.utcnow()
     
     # If custom dates provided, use them
     if start_date and end_date:
+        # User provides local dates, we treat them as local 00:00 to 23:59
+        # But for simplicity, we use them as-is
         return start_date, end_date
     elif start_date:
         return start_date, now
@@ -39,8 +45,16 @@ def _period_range(
     return start, now
 
 
-def _previous_period_range(period: str) -> tuple[datetime, datetime]:
+def _previous_period_range(
+    period: str, 
+    start_date: datetime | None = None, 
+    end_date: datetime | None = None
+) -> tuple[datetime, datetime]:
     """Return the equivalent previous period for comparison."""
+    if start_date and end_date:
+        duration = end_date - start_date
+        return start_date - duration, start_date
+        
     start, end = _period_range(period)
     duration = end - start
     return start - duration, start
@@ -61,7 +75,7 @@ async def overview(
     result = await db.execute(
         select(
             func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.count(func.distinct(Sale.order_number)).label("orders"),
+            func.count(func.distinct(func.coalesce(Sale.order_number, Sale.fudo_id))).label("orders"),
             func.coalesce(func.sum(Sale.quantity), 0).label("items_sold"),
         ).where(Sale.sale_date.between(start, end))
     )
@@ -73,6 +87,7 @@ async def overview(
     avg_ticket = curr_revenue / curr_orders if curr_orders > 0 else 0
 
     # Previous period
+    prev_start, prev_end = _previous_period_range(period, start_date, end_date)
     prev_result = await db.execute(
         select(
             func.coalesce(func.sum(Sale.total), 0).label("revenue"),
@@ -82,7 +97,6 @@ async def overview(
     prev = prev_result.one()
 
     prev_revenue = float(prev.revenue or 0)
-    curr_revenue = float(current.revenue or 0)
     revenue_change = (
         ((curr_revenue - prev_revenue) / prev_revenue * 100)
         if prev_revenue > 0
@@ -117,33 +131,45 @@ async def sales_trend(
     end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Revenue time series grouped by day."""
+    """Revenue time series grouped by day, including 0-sale days."""
     start, end = _period_range(period, start_date, end_date)
 
-    # Use subquery for robust grouping in Postgres
-    subq = (
+    # Use generate_series to create a continuous list of dates
+    # We cast to Date to match the grouped trend dates
+    date_series = select(
+        func.generate_series(
+            func.date_trunc("day", start),
+            func.date_trunc("day", end),
+            text("interval '1 day'")
+        ).label("series_date")
+    ).cte("date_series")
+
+    # Group sales by day (adjusted for Argentina time if desired, but trend is usually by UTC day)
+    # Actually, let's keep trend in local Argentina day for better alignment with business hours
+    sales_subq = (
         select(
-            func.date_trunc("day", Sale.sale_date).label("trend_date"),
-            Sale.total,
-            Sale.order_number,
+            func.date_trunc("day", Sale.sale_date + text(f"interval '{ARG_OFFSET} hours'")).label("sale_day"),
+            func.sum(Sale.total).label("revenue"),
+            func.count(func.distinct(Sale.order_number)).label("orders"),
         )
         .where(Sale.sale_date.between(start, end))
+        .group_by(text("sale_day"))
         .subquery()
     )
 
     result = await db.execute(
         select(
-            subq.c.trend_date.label("date"),
-            func.coalesce(func.sum(subq.c.total), 0).label("revenue"),
-            func.count(func.distinct(subq.c.order_number)).label("orders"),
+            date_series.c.series_date,
+            func.coalesce(sales_subq.c.revenue, 0).label("revenue"),
+            func.coalesce(sales_subq.c.orders, 0).label("orders"),
         )
-        .group_by(subq.c.trend_date)
-        .order_by(subq.c.trend_date)
+        .outerjoin(sales_subq, date_series.c.series_date == sales_subq.c.sale_day)
+        .order_by(date_series.c.series_date)
     )
 
     return [
         {
-            "date": row.date.isoformat() if row.date else None,
+            "date": row.series_date.date().isoformat() if row.series_date else None,
             "revenue": round(float(row.revenue), 2),
             "orders": int(row.orders),
         }
@@ -245,13 +271,13 @@ async def hourly_distribution(
     end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Sales aggregated by hour of day."""
+    """Sales aggregated by hour of day (Argentina Time)."""
     start, end = _period_range(period, start_date, end_date)
 
-    # Use subquery for robust grouping
+    # Use subquery for robust grouping, shifting to local Argentina time
     subq = (
         select(
-            extract("hour", Sale.sale_date).label("res_hour"),
+            extract("hour", Sale.sale_date + text(f"interval '{ARG_OFFSET} hours'")).label("res_hour"),
             Sale.total,
             Sale.id,
         )
@@ -269,11 +295,15 @@ async def hourly_distribution(
         .order_by(subq.c.res_hour)
     )
 
-    # Fill all 24 hours
-    hourly = {int(r.hour or 0): {"revenue": round(float(r.revenue), 2), "count": int(r.count)} for r in result.all()}
+    # Only return hours that have sales (as requested)
     return [
-        {"hour": h, "revenue": hourly.get(h, {}).get("revenue", 0), "count": hourly.get(h, {}).get("count", 0)}
-        for h in range(24)
+        {
+            "hour": int(row.hour),
+            "revenue": round(float(row.revenue), 2),
+            "count": int(row.count),
+        }
+        for row in result.all()
+        if row.revenue > 0 or row.count > 0
     ]
 
 

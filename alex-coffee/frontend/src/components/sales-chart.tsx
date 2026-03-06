@@ -35,20 +35,20 @@ export function SalesChart({ data }: SalesChartProps) {
           <AreaChart data={formattedData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--muted)" />
             <XAxis
               dataKey="date"
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
@@ -56,8 +56,8 @@ export function SalesChart({ data }: SalesChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "var(--radius)",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
@@ -69,7 +69,7 @@ export function SalesChart({ data }: SalesChartProps) {
             <Area
               type="monotone"
               dataKey="revenue"
-              stroke="hsl(var(--chart-1))"
+              stroke="var(--chart-1)"
               strokeWidth={3}
               fillOpacity={1}
               fill="url(#colorRevenue)"
