@@ -18,7 +18,7 @@ import {
 import { Loader2, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<any>("month");
+  const [period, setPeriod] = useState<Period>("month");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -119,7 +119,7 @@ export default function DashboardPage() {
           )}
 
           <div className="w-[160px]">
-            <Select value={period} onValueChange={(value) => setPeriod(value)}>
+            <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
               <SelectTrigger className="h-9 font-medium">
                 <SelectValue placeholder="Period" />
               </SelectTrigger>

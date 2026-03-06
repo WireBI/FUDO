@@ -37,7 +37,7 @@ async function fetchAPIWithAuth<T>(path: string, adminKey: string, options?: Req
   return res.json();
 }
 
-export type Period = "today" | "week" | "month" | "year";
+export type Period = "today" | "week" | "month" | "year" | "custom";
 
 export interface OverviewData {
   revenue: number;
