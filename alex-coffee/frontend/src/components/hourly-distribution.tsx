@@ -9,11 +9,21 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 interface HourlyDistributionProps {
   data: { hour: number; revenue: number; count: number }[];
 }
+
+const COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
 
 export function HourlyDistribution({ data }: HourlyDistributionProps) {
   const formattedData = data.map((d) => ({
@@ -22,24 +32,42 @@ export function HourlyDistribution({ data }: HourlyDistributionProps) {
   }));
 
   return (
-    <Card>
+    <Card className="shadow-md border-muted">
       <CardHeader>
-        <CardTitle>Sales by Hour</CardTitle>
+        <CardTitle className="text-lg font-medium">Sales by Hour</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={formattedData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="hour" stroke="var(--muted-foreground)" />
-            <YAxis stroke="var(--muted-foreground)" />
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={formattedData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+            <XAxis
+              dataKey="hour"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `$${value}`}
+            />
             <Tooltip
               contentStyle={{
-                backgroundColor: "var(--card)",
-                border: "1px solid var(--border)",
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "var(--radius)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
-              formatter={(value: number | undefined) => value !== undefined ? `$${value.toFixed(2)}` : ''}
+              formatter={(value: number | undefined) => [formatCurrency(value || 0), "Revenue"]}
             />
-            <Bar dataKey="revenue" fill="hsl(var(--chart-4))" />
+            <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+              {formattedData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

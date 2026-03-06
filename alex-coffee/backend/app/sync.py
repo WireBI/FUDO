@@ -152,6 +152,11 @@ async def sync_sales(
     result = await db.execute(select(Product.fudo_id, Product.id))
     prod_map = {row[0]: row[1] for row in result.all()}
 
+    # To handle deduplication of items when a sale is updated, 
+    # we should ideally delete existing items for the sales we are about to sync
+    # if those sales already exist. However, since we use fudo_id as composite keys 
+    # {sale_id}_{item_id} or just {sale_id}, the on_conflict_do_update handles it.
+    
     values = []
     for sale in sales:
         fudo_id = str(sale.get("id", ""))
@@ -170,14 +175,20 @@ async def sync_sales(
         else:
             sale_date = datetime.utcnow()
 
+        # payment_method mapping
+        payment_method = sale.get("saleType") or sale.get("paymentMethod", "N/A")
+        order_number = sale.get("saleNumber") or str(fudo_id)
+
         # Handle items within a sale
         items = sale.get("items", [])
         if items:
             for item in items:
-                item_fudo_id = f"{fudo_id}_{item.get('id', '0')}"
+                # Ensure each item has a unique fudo_id tied to the sale
+                raw_item_id = item.get('id', '0')
+                item_fudo_id = f"{fudo_id}_{raw_item_id}"
                 prod_fudo_id = str(item.get("productId", ""))
-                product_name = item.get("productName", "")
-                quantity = item.get("quantity", 1) or 1
+                product_name = item.get("productName") or item.get("name", "Unknown")
+                quantity = float(item.get("quantity", 1) or 1)
                 unit_price = float(item.get("price", 0) or 0)
                 total = float(item.get("total", unit_price * quantity) or 0)
 
@@ -185,15 +196,16 @@ async def sync_sales(
                     "fudo_id": item_fudo_id,
                     "product_id": prod_map.get(prod_fudo_id),
                     "product_name": product_name,
-                    "quantity": quantity,
+                    "quantity": int(quantity),
                     "unit_price": unit_price,
                     "total": total,
                     "sale_date": sale_date,
-                    "payment_method": sale.get("saleType"),
-                    "order_number": sale.get("saleNumber", str(fudo_id)),
+                    "payment_method": payment_method,
+                    "order_number": order_number,
                 })
         else:
             # Fallback for flat sale record if items missing
+            # Use the sale ID as the fudo_id to prevent duplicates
             total = float(sale.get("total", 0) or 0)
             values.append({
                 "fudo_id": fudo_id,
@@ -203,8 +215,8 @@ async def sync_sales(
                 "unit_price": total,
                 "total": total,
                 "sale_date": sale_date,
-                "payment_method": sale.get("saleType"),
-                "order_number": sale.get("saleNumber", str(fudo_id)),
+                "payment_method": payment_method,
+                "order_number": order_number,
             })
 
     # Batch insert in chunks to avoid large parameter limits
@@ -221,6 +233,10 @@ async def sync_sales(
                     "quantity": Sale.quantity,
                     "product_id": Sale.product_id,
                     "product_name": Sale.product_name,
+                    "unit_price": Sale.unit_price,
+                    "sale_date": Sale.sale_date,
+                    "payment_method": Sale.payment_method,
+                    "order_number": Sale.order_number,
                 },
             )
         )

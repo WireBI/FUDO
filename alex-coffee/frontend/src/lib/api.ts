@@ -121,16 +121,36 @@ export interface CredentialStatus {
 
 export const api = {
   dashboard: {
-    overview: (period: Period) =>
-      fetchAPI<OverviewData>(`/api/dashboard/overview?period=${period}`),
-    salesTrend: (period: Period) =>
-      fetchAPI<SalesTrendPoint[]>(`/api/dashboard/sales-trend?period=${period}`),
-    topProducts: (period: Period, limit = 10) =>
-      fetchAPI<TopProduct[]>(`/api/dashboard/top-products?period=${period}&limit=${limit}`),
-    salesByCategory: (period: Period) =>
-      fetchAPI<CategorySales[]>(`/api/dashboard/sales-by-category?period=${period}`),
-    hourlyDistribution: (period: Period) =>
-      fetchAPI<HourlyData[]>(`/api/dashboard/hourly-distribution?period=${period}`),
+    overview: (period: Period, startDate?: string, endDate?: string) => {
+      let url = `/api/dashboard/overview?period=${period}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+      return fetchAPI<OverviewData>(url);
+    },
+    salesTrend: (period: Period, startDate?: string, endDate?: string) => {
+      let url = `/api/dashboard/sales-trend?period=${period}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+      return fetchAPI<SalesTrendPoint[]>(url);
+    },
+    topProducts: (period: Period, limit = 10, startDate?: string, endDate?: string) => {
+      let url = `/api/dashboard/top-products?period=${period}&limit=${limit}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+      return fetchAPI<TopProduct[]>(url);
+    },
+    salesByCategory: (period: Period, startDate?: string, endDate?: string) => {
+      let url = `/api/dashboard/sales-by-category?period=${period}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+      return fetchAPI<CategorySales[]>(url);
+    },
+    hourlyDistribution: (period: Period, startDate?: string, endDate?: string) => {
+      let url = `/api/dashboard/hourly-distribution?period=${period}`;
+      if (startDate) url += `&start_date=${startDate}`;
+      if (endDate) url += `&end_date=${endDate}`;
+      return fetchAPI<HourlyData[]>(url);
+    },
     recentSales: (limit = 20) =>
       fetchAPI<RecentSale[]>(`/api/dashboard/recent-sales?limit=${limit}`),
   },

@@ -12,9 +12,20 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 PeriodType = str  # "today" | "week" | "month" | "year"
 
 
-def _period_range(period: str) -> tuple[datetime, datetime]:
-    """Return (start, end) datetimes for the given period."""
+def _period_range(
+    period: str, 
+    start_date: datetime | None = None, 
+    end_date: datetime | None = None
+) -> tuple[datetime, datetime]:
+    """Return (start, end) datetimes for the given period or custom range."""
     now = datetime.utcnow()
+    
+    # If custom dates provided, use them
+    if start_date and end_date:
+        return start_date, end_date
+    elif start_date:
+        return start_date, now
+
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -37,11 +48,13 @@ def _previous_period_range(period: str) -> tuple[datetime, datetime]:
 
 @router.get("/overview")
 async def overview(
-    period: str = Query("month", regex="^(today|week|month|year)$"),
+    period: str = Query("month", regex="^(today|week|month|year|custom)$"),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """KPI overview: total revenue, order count, avg ticket, with period comparison."""
-    start, end = _period_range(period)
+    start, end = _period_range(period, start_date, end_date)
     prev_start, prev_end = _previous_period_range(period)
 
     # Current period
@@ -49,20 +62,15 @@ async def overview(
         select(
             func.coalesce(func.sum(Sale.total), 0).label("revenue"),
             func.count(func.distinct(Sale.order_number)).label("orders"),
-            func.coalesce(func.avg(Sale.total), 0).label("avg_item"),
             func.coalesce(func.sum(Sale.quantity), 0).label("items_sold"),
         ).where(Sale.sale_date.between(start, end))
     )
     current = result.one()
+    curr_revenue = float(current.revenue or 0)
+    curr_orders = int(current.orders or 0)
 
-    # Compute average ticket per order
-    order_totals = await db.execute(
-        select(func.coalesce(func.sum(Sale.total), 0).label("order_total"))
-        .where(Sale.sale_date.between(start, end))
-        .group_by(Sale.order_number)
-    )
-    order_totals_list = [float(r[0]) for r in order_totals.all()]
-    avg_ticket = sum(order_totals_list) / len(order_totals_list) if order_totals_list else 0
+    # Compute average ticket per order (Revenue / unique orders)
+    avg_ticket = curr_revenue / curr_orders if curr_orders > 0 else 0
 
     # Previous period
     prev_result = await db.execute(
@@ -97,16 +105,20 @@ async def overview(
         "avg_ticket": round(float(avg_ticket), 2),
         "items_sold": int(current.items_sold or 0),
         "period": period,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
     }
 
 
 @router.get("/sales-trend")
 async def sales_trend(
-    period: str = Query("month", regex="^(today|week|month|year)$"),
+    period: str = Query("month", regex="^(today|week|month|year|custom)$"),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Revenue time series grouped by day."""
-    start, end = _period_range(period)
+    start, end = _period_range(period, start_date, end_date)
 
     # Use subquery for robust grouping in Postgres
     subq = (
@@ -141,12 +153,14 @@ async def sales_trend(
 
 @router.get("/top-products")
 async def top_products(
-    period: str = Query("month", regex="^(today|week|month|year)$"),
+    period: str = Query("month", regex="^(today|week|month|year|custom)$"),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ):
     """Top products by revenue."""
-    start, end = _period_range(period)
+    start, end = _period_range(period, start_date, end_date)
 
     # Use subquery to resolve names before grouping (most robust for Postgres)
     subq = (
@@ -183,11 +197,13 @@ async def top_products(
 
 @router.get("/sales-by-category")
 async def sales_by_category(
-    period: str = Query("month", regex="^(today|week|month|year)$"),
+    period: str = Query("month", regex="^(today|week|month|year|custom)$"),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Revenue breakdown by product category."""
-    start, end = _period_range(period)
+    start, end = _period_range(period, start_date, end_date)
 
     # Use subquery for robust grouping
     subq = (
@@ -224,11 +240,13 @@ async def sales_by_category(
 
 @router.get("/hourly-distribution")
 async def hourly_distribution(
-    period: str = Query("month", regex="^(today|week|month|year)$"),
+    period: str = Query("month", regex="^(today|week|month|year|custom)$"),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Sales aggregated by hour of day."""
-    start, end = _period_range(period)
+    start, end = _period_range(period, start_date, end_date)
 
     # Use subquery for robust grouping
     subq = (

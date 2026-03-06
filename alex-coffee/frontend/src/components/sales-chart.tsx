@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 interface SalesChartProps {
   data: { date: string; revenue: number; orders: number }[];
@@ -25,35 +26,54 @@ export function SalesChart({ data }: SalesChartProps) {
   }));
 
   return (
-    <Card className="col-span-full">
+    <Card className="col-span-full shadow-md border-muted">
       <CardHeader>
-        <CardTitle>Revenue Trend</CardTitle>
+        <CardTitle className="text-xl font-semibold">Revenue Trend</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={formattedData}>
+        <ResponsiveContainer width="100%" height={350}>
+          <AreaChart data={formattedData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
+                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="date" stroke="var(--muted-foreground)" />
-            <YAxis stroke="var(--muted-foreground)" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+            <XAxis
+              dataKey="date"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(value) => `$${value}`}
+            />
             <Tooltip
               contentStyle={{
-                backgroundColor: "var(--card)",
-                border: "1px solid var(--border)",
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "var(--radius)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
-              formatter={(value: number | undefined) => value !== undefined ? `$${value.toFixed(2)}` : ''}
+              formatter={(value: number | undefined) => [
+                formatCurrency(value || 0),
+                "Revenue"
+              ]}
             />
             <Area
               type="monotone"
               dataKey="revenue"
               stroke="hsl(var(--chart-1))"
+              strokeWidth={3}
               fillOpacity={1}
               fill="url(#colorRevenue)"
+              animationDuration={1500}
             />
           </AreaChart>
         </ResponsiveContainer>

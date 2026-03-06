@@ -18,7 +18,9 @@ import {
 import { Loader2, AlertCircle } from "lucide-react";
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<any>("month");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,17 +37,24 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
 
-        const [overview, trend, products, categories, hourly, recent] =
+        // Map "month" to current month range if needed, or just let backend handle it
+        // If "custom" and dates are missing, fallback or wait
+        if (period === "custom" && (!startDate || !endDate)) {
+          setLoading(false);
+          return;
+        }
+
+        const [ov, trend, products, categories, hourly, recent] =
           await Promise.all([
-            api.dashboard.overview(period),
-            api.dashboard.salesTrend(period),
-            api.dashboard.topProducts(period),
-            api.dashboard.salesByCategory(period),
-            api.dashboard.hourlyDistribution(period),
+            api.dashboard.overview(period, startDate, endDate),
+            api.dashboard.salesTrend(period, startDate, endDate),
+            api.dashboard.topProducts(period, 10, startDate, endDate),
+            api.dashboard.salesByCategory(period, startDate, endDate),
+            api.dashboard.hourlyDistribution(period, startDate, endDate),
             api.dashboard.recentSales(20),
           ]);
 
-        setOverview(overview);
+        setOverview(ov);
         setSalesTrend(trend);
         setTopProducts(products);
         setCategoryData(categories);
@@ -61,17 +70,17 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, [period]);
+  }, [period, startDate, endDate]);
 
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
-        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+      <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-sm transition-all animate-in fade-in zoom-in duration-300">
+        <AlertCircle className="h-6 w-6 flex-shrink-0" />
         <div>
-          <p className="font-semibold">Error loading dashboard</p>
-          <p className="text-sm">{error}</p>
-          <p className="text-xs mt-2">
-            Make sure the backend API is running and the database is initialized.
+          <p className="font-bold text-lg">Error loading dashboard</p>
+          <p className="text-sm opacity-90">{error}</p>
+          <p className="text-xs mt-3 font-medium px-2 py-1 bg-red-100 rounded-md w-fit">
+            Ensure backend is running and database is connected.
           </p>
         </div>
       </div>
@@ -79,56 +88,88 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <div className="w-[180px]">
-          <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between bg-card p-6 rounded-2xl shadow-sm border border-border/50">
+        <div>
+          <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-1 font-medium">
+            Real-time insights for Alex Coffee
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {period === "custom" && (
+            <div className="flex items-center gap-2 animate-in slide-in-from-right-4 duration-300">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <span className="text-muted-foreground font-medium">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          )}
+
+          <div className="w-[160px]">
+            <Select value={period} onValueChange={(value) => setPeriod(value)}>
+              <SelectTrigger className="h-9 font-medium">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+                <SelectItem value="year">This Year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
-      {loading || !overview ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      {loading && !overview ? (
+        <div className="flex flex-col items-center justify-center py-32 space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">
+            Fetching latest analytics...
+          </p>
         </div>
       ) : (
-        <>
+        <div className="space-y-8 pb-12">
           <KPICards
-            revenue={overview.revenue}
-            revenueChange={overview.revenue_change}
-            orders={overview.orders}
-            ordersChange={overview.orders_change}
-            avgTicket={overview.avg_ticket}
-            itemsSold={overview.items_sold}
+            revenue={overview?.revenue || 0}
+            revenueChange={overview?.revenue_change || 0}
+            orders={overview?.orders || 0}
+            ordersChange={overview?.orders_change || 0}
+            avgTicket={overview?.avg_ticket || 0}
+            itemsSold={overview?.items_sold || 0}
           />
 
           <div className="grid gap-4">
             <SalesChart data={salesTrend} />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <TopProducts data={topProducts} />
             <SalesByCategory data={categoryData} />
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <HourlyDistribution data={hourlyData} />
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             <RecentSales data={recentSalesData} />
           </div>
-        </>
+        </div>
       )}
     </div>
   );

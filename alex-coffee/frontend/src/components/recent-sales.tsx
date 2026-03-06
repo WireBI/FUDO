@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 
 interface RecentSalesProps {
   data: {
@@ -25,9 +26,9 @@ interface RecentSalesProps {
 export function RecentSales({ data }: RecentSalesProps) {
   if (data.length === 0) {
     return (
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Recent Sales</CardTitle>
+          <CardTitle className="text-lg font-medium">Recent Sales</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">No sales data available</p>
@@ -37,40 +38,45 @@ export function RecentSales({ data }: RecentSalesProps) {
   }
 
   return (
-    <Card className="col-span-full">
-      <CardHeader>
-        <CardTitle>Recent Sales</CardTitle>
+    <Card className="col-span-full shadow-md border-muted">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-lg font-medium">Recent Sales</CardTitle>
+        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+          Latest {data.length} transactions
+        </span>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Time</TableHead>
+                <TableHead className="font-bold">Order</TableHead>
+                <TableHead className="font-bold">Product</TableHead>
+                <TableHead className="font-bold">Qty</TableHead>
+                <TableHead className="text-right font-bold">Amount</TableHead>
+                <TableHead className="font-bold">Payment</TableHead>
+                <TableHead className="font-bold">Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.map((sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell className="font-mono text-sm">
-                    {sale.order_number || "-"}
+                <TableRow key={sale.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    #{sale.order_number || "-"}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+                  <TableCell className="max-w-[200px] truncate font-medium">
                     {sale.product}
                   </TableCell>
-                  <TableCell>{sale.quantity}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    ${sale.total.toFixed(2)}
+                  <TableCell>{formatNumber(sale.quantity)}</TableCell>
+                  <TableCell className="text-right font-bold text-primary">
+                    {formatCurrency(sale.total)}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {sale.payment_method || "-"}
+                  <TableCell>
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground font-medium">
+                      {sale.payment_method || "N/A"}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {new Date(sale.date).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
