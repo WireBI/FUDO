@@ -108,15 +108,25 @@ async def sales_trend(
     """Revenue time series grouped by day."""
     start, end = _period_range(period)
 
-    result = await db.execute(
+    # Use subquery for robust grouping in Postgres
+    subq = (
         select(
-            func.date_trunc("day", Sale.sale_date).label("date"),
-            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.count(func.distinct(Sale.order_number)).label("orders"),
+            func.date_trunc("day", Sale.sale_date).label("trend_date"),
+            Sale.total,
+            Sale.order_number,
         )
         .where(Sale.sale_date.between(start, end))
-        .group_by(func.date_trunc("day", Sale.sale_date))
-        .order_by(func.date_trunc("day", Sale.sale_date))
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(
+            subq.c.trend_date.label("date"),
+            func.coalesce(func.sum(subq.c.total), 0).label("revenue"),
+            func.count(func.distinct(subq.c.order_number)).label("orders"),
+        )
+        .group_by(subq.c.trend_date)
+        .order_by(subq.c.trend_date)
     )
 
     return [
@@ -220,19 +230,29 @@ async def hourly_distribution(
     """Sales aggregated by hour of day."""
     start, end = _period_range(period)
 
-    result = await db.execute(
+    # Use subquery for robust grouping
+    subq = (
         select(
-            extract("hour", Sale.sale_date).label("hour"),
-            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.count(Sale.id).label("count"),
+            extract("hour", Sale.sale_date).label("res_hour"),
+            Sale.total,
+            Sale.id,
         )
         .where(Sale.sale_date.between(start, end))
-        .group_by(extract("hour", Sale.sale_date))
-        .order_by(extract("hour", Sale.sale_date))
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(
+            subq.c.res_hour.label("hour"),
+            func.coalesce(func.sum(subq.c.total), 0).label("revenue"),
+            func.count(subq.c.id).label("count"),
+        )
+        .group_by(subq.c.res_hour)
+        .order_by(subq.c.res_hour)
     )
 
     # Fill all 24 hours
-    hourly = {int(r.hour): {"revenue": round(float(r.revenue), 2), "count": int(r.count)} for r in result.all()}
+    hourly = {int(r.hour or 0): {"revenue": round(float(r.revenue), 2), "count": int(r.count)} for r in result.all()}
     return [
         {"hour": h, "revenue": hourly.get(h, {}).get("revenue", 0), "count": hourly.get(h, {}).get("count", 0)}
         for h in range(24)
