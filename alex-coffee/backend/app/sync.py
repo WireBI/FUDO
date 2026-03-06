@@ -148,11 +148,13 @@ async def sync_sales(
         sale_date_raw = sale.get("date", sale.get("fecha", sale.get("createdAt", "")))
         if isinstance(sale_date_raw, str):
             try:
-                sale_date = datetime.fromisoformat(sale_date_raw.replace("Z", "+00:00"))
+                # Based on user error, this can produce offset-aware datetime
+                # We normalize to naive UTC (Postgres requirement for TIMESTAMP WITHOUT TIME ZONE)
+                sale_date = datetime.fromisoformat(sale_date_raw.replace("Z", "+00:00")).replace(tzinfo=None)
             except ValueError:
                 sale_date = datetime.utcnow()
         elif isinstance(sale_date_raw, datetime):
-            sale_date = sale_date_raw
+            sale_date = sale_date_raw.replace(tzinfo=None)
         else:
             sale_date = datetime.utcnow()
 
