@@ -204,10 +204,21 @@ class FudoClient:
             "page[number]": page_number,
             "include": "items,items.product"
         }
+        
+        filters = []
         if date_from:
-            params["from"] = date_from.isoformat()
+            # Fudo expects YYYY-MM-DDTHH:MM:SSZ format or similar
+            df_str = date_from.strftime("%Y-%m-%dT%H:%M:%SZ")
+            filters.append(f"gte.{df_str}")
         if date_to:
-            params["to"] = date_to.isoformat()
+            dt_str = date_to.strftime("%Y-%m-%dT%H:%M:%SZ")
+            filters.append(f"lte.{dt_str}")
+            
+        if filters:
+            if len(filters) > 1:
+                params["filter[createdAt]"] = f"and({','.join(filters)})"
+            else:
+                params["filter[createdAt]"] = filters[0]
         
         data = await self._request("GET", self.ENDPOINTS["sales"], params=params)
         return self._normalize_json_api(data, data.get("included"))
