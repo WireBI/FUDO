@@ -138,16 +138,26 @@ async def top_products(
     """Top products by revenue."""
     start, end = _period_range(period)
 
-    result = await db.execute(
+    # Use subquery to resolve names before grouping (most robust for Postgres)
+    subq = (
         select(
-            func.coalesce(Product.name, Sale.product_name).label("name"),
-            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.coalesce(func.sum(Sale.quantity), 0).label("quantity"),
+            func.coalesce(Product.name, Sale.product_name).label("res_name"),
+            Sale.total,
+            Sale.quantity,
         )
         .outerjoin(Product, Sale.product_id == Product.id)
         .where(Sale.sale_date.between(start, end))
-        .group_by(func.coalesce(Product.name, Sale.product_name))
-        .order_by(func.sum(Sale.total).desc())
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(
+            subq.c.res_name.label("name"),
+            func.coalesce(func.sum(subq.c.total), 0).label("revenue"),
+            func.coalesce(func.sum(subq.c.quantity), 0).label("quantity"),
+        )
+        .group_by(subq.c.res_name)
+        .order_by(func.sum(subq.c.total).desc())
         .limit(limit)
     )
 
@@ -169,17 +179,27 @@ async def sales_by_category(
     """Revenue breakdown by product category."""
     start, end = _period_range(period)
 
-    result = await db.execute(
+    # Use subquery for robust grouping
+    subq = (
         select(
-            func.coalesce(Category.name, "Sin categoría").label("category"),
-            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.coalesce(func.sum(Sale.quantity), 0).label("quantity"),
+            func.coalesce(Category.name, "Sin categoría").label("res_cat"),
+            Sale.total,
+            Sale.quantity,
         )
         .outerjoin(Product, Sale.product_id == Product.id)
         .outerjoin(Category, Product.category_id == Category.id)
         .where(Sale.sale_date.between(start, end))
-        .group_by(func.coalesce(Category.name, "Sin categoría"))
-        .order_by(func.sum(Sale.total).desc())
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(
+            subq.c.res_cat.label("category"),
+            func.coalesce(func.sum(subq.c.total), 0).label("revenue"),
+            func.coalesce(func.sum(subq.c.quantity), 0).label("quantity"),
+        )
+        .group_by(subq.c.res_cat)
+        .order_by(func.sum(subq.c.total).desc())
     )
 
     return [
