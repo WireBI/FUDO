@@ -115,8 +115,8 @@ async def sales_trend(
             func.count(func.distinct(Sale.order_number)).label("orders"),
         )
         .where(Sale.sale_date.between(start, end))
-        .group_by(text("date"))
-        .order_by(text("date"))
+        .group_by(func.date_trunc("day", Sale.sale_date))
+        .order_by(func.date_trunc("day", Sale.sale_date))
     )
 
     return [
@@ -146,8 +146,8 @@ async def top_products(
         )
         .outerjoin(Product, Sale.product_id == Product.id)
         .where(Sale.sale_date.between(start, end))
-        .group_by(text("name"))
-        .order_by(text("revenue DESC"))
+        .group_by(func.coalesce(Product.name, Sale.product_name))
+        .order_by(func.sum(Sale.total).desc())
         .limit(limit)
     )
 
@@ -178,8 +178,8 @@ async def sales_by_category(
         .outerjoin(Product, Sale.product_id == Product.id)
         .outerjoin(Category, Product.category_id == Category.id)
         .where(Sale.sale_date.between(start, end))
-        .group_by(text("category"))
-        .order_by(text("revenue DESC"))
+        .group_by(func.coalesce(Category.name, "Sin categoría"))
+        .order_by(func.sum(Sale.total).desc())
     )
 
     return [
@@ -207,8 +207,8 @@ async def hourly_distribution(
             func.count(Sale.id).label("count"),
         )
         .where(Sale.sale_date.between(start, end))
-        .group_by(text("hour"))
-        .order_by(text("hour"))
+        .group_by(extract("hour", Sale.sale_date))
+        .order_by(extract("hour", Sale.sale_date))
     )
 
     # Fill all 24 hours
