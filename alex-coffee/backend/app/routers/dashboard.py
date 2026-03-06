@@ -57,7 +57,7 @@ async def overview(
 
     # Compute average ticket per order
     order_totals = await db.execute(
-        select(func.sum(Sale.total).label("order_total"))
+        select(func.coalesce(func.sum(Sale.total), 0).label("order_total"))
         .where(Sale.sale_date.between(start, end))
         .group_by(Sale.order_number)
     )
@@ -111,7 +111,7 @@ async def sales_trend(
     result = await db.execute(
         select(
             func.date_trunc("day", Sale.sale_date).label("date"),
-            func.sum(Sale.total).label("revenue"),
+            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
             func.count(func.distinct(Sale.order_number)).label("orders"),
         )
         .where(Sale.sale_date.between(start, end))
@@ -141,8 +141,8 @@ async def top_products(
     result = await db.execute(
         select(
             func.coalesce(Product.name, Sale.product_name).label("name"),
-            func.sum(Sale.total).label("revenue"),
-            func.sum(Sale.quantity).label("quantity"),
+            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
+            func.coalesce(func.sum(Sale.quantity), 0).label("quantity"),
         )
         .outerjoin(Product, Sale.product_id == Product.id)
         .where(Sale.sale_date.between(start, end))
@@ -172,8 +172,8 @@ async def sales_by_category(
     result = await db.execute(
         select(
             func.coalesce(Category.name, "Sin categoría").label("category"),
-            func.sum(Sale.total).label("revenue"),
-            func.sum(Sale.quantity).label("quantity"),
+            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
+            func.coalesce(func.sum(Sale.quantity), 0).label("quantity"),
         )
         .outerjoin(Product, Sale.product_id == Product.id)
         .outerjoin(Category, Product.category_id == Category.id)
@@ -203,7 +203,7 @@ async def hourly_distribution(
     result = await db.execute(
         select(
             extract("hour", Sale.sale_date).label("hour"),
-            func.sum(Sale.total).label("revenue"),
+            func.coalesce(func.sum(Sale.total), 0).label("revenue"),
             func.count(Sale.id).label("count"),
         )
         .where(Sale.sale_date.between(start, end))

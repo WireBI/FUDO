@@ -178,8 +178,8 @@ async def sync_sales(
                 prod_fudo_id = str(item.get("productId", ""))
                 product_name = item.get("productName", "")
                 quantity = item.get("quantity", 1) or 1
-                unit_price = item.get("price", 0) or 0
-                total = item.get("total", float(unit_price) * quantity)
+                unit_price = float(item.get("price", 0) or 0)
+                total = float(item.get("total", unit_price * quantity) or 0)
 
                 values.append({
                     "fudo_id": item_fudo_id,
@@ -190,11 +190,11 @@ async def sync_sales(
                     "total": total,
                     "sale_date": sale_date,
                     "payment_method": sale.get("saleType"),
-                    "order_number": None, # Fudo v1alpha1 sales don't seem to have simple orderNumber
+                    "order_number": sale.get("saleNumber", str(fudo_id)),
                 })
         else:
             # Fallback for flat sale record if items missing
-            total = sale.get("total", 0)
+            total = float(sale.get("total", 0) or 0)
             values.append({
                 "fudo_id": fudo_id,
                 "product_id": None,
@@ -204,7 +204,7 @@ async def sync_sales(
                 "total": total,
                 "sale_date": sale_date,
                 "payment_method": sale.get("saleType"),
-                "order_number": None,
+                "order_number": sale.get("saleNumber", str(fudo_id)),
             })
 
     # Batch insert in chunks to avoid large parameter limits
