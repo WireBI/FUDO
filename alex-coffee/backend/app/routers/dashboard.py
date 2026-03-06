@@ -68,21 +68,21 @@ async def overview(
     prev_result = await db.execute(
         select(
             func.coalesce(func.sum(Sale.total), 0).label("revenue"),
-            func.count(func.distinct(Sale.order_number)).label("orders"),
+            func.count(func.distinct(func.coalesce(Sale.order_number, Sale.fudo_id))).label("orders"),
         ).where(Sale.sale_date.between(prev_start, prev_end))
     )
     prev = prev_result.one()
 
-    prev_revenue = float(prev.revenue)
-    curr_revenue = float(current.revenue)
+    prev_revenue = float(prev.revenue or 0)
+    curr_revenue = float(current.revenue or 0)
     revenue_change = (
         ((curr_revenue - prev_revenue) / prev_revenue * 100)
         if prev_revenue > 0
         else 0
     )
 
-    prev_orders = int(prev.orders)
-    curr_orders = int(current.orders)
+    prev_orders = int(prev.orders or 0)
+    curr_orders = int(current.orders or 0)
     orders_change = (
         ((curr_orders - prev_orders) / prev_orders * 100)
         if prev_orders > 0
@@ -94,8 +94,8 @@ async def overview(
         "revenue_change": round(revenue_change, 1),
         "orders": curr_orders,
         "orders_change": round(orders_change, 1),
-        "avg_ticket": round(avg_ticket, 2),
-        "items_sold": int(current.items_sold),
+        "avg_ticket": round(float(avg_ticket), 2),
+        "items_sold": int(current.items_sold or 0),
         "period": period,
     }
 
@@ -228,11 +228,11 @@ async def recent_sales(
     result = await db.execute(
         select(
             Sale.id,
-            Sale.order_number,
-            func.coalesce(Product.name, Sale.product_name).label("product"),
-            Sale.quantity,
-            Sale.total,
-            Sale.payment_method,
+            func.coalesce(Sale.order_number, Sale.fudo_id).label("order_number"),
+            func.coalesce(Product.name, Sale.product_name, "Producto desconocido").label("product"),
+            func.coalesce(Sale.quantity, 0).label("quantity"),
+            func.coalesce(Sale.total, 0).label("total"),
+            func.coalesce(Sale.payment_method, "N/A").label("payment_method"),
             Sale.sale_date,
         )
         .outerjoin(Product, Sale.product_id == Product.id)
@@ -244,8 +244,8 @@ async def recent_sales(
         {
             "id": row.id,
             "order_number": row.order_number,
-            "product": row.product or "Unknown",
-            "quantity": row.quantity,
+            "product": row.product,
+            "quantity": int(row.quantity),
             "total": round(float(row.total), 2),
             "payment_method": row.payment_method,
             "date": row.sale_date.isoformat() if row.sale_date else None,
