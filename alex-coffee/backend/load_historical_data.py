@@ -1,6 +1,12 @@
 import asyncio
 import sys
+import os
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session_factory, init_db
 from app.sync import sync_sales, sync_categories, sync_products
